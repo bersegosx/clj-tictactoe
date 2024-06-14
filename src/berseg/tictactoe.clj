@@ -5,7 +5,24 @@
                           [\_ \_ \_]
                           [\_ \_ \_]]
                   :turns []}))
+;; Tools
+(defn in-range?
+  [value [start end]]
+  (and (>= value start)
+       (<= value end)))
 
+(defn equal?
+  [mark]
+  (partial
+   (fn [mark elements]
+     (apply = mark elements))
+   mark))
+
+(defn any-true?
+  [col]
+  (some true? col))
+
+;; api
 (defn get-next-mark
   [turns]
   (let [is-even (-> (count turns)
@@ -39,11 +56,6 @@
   (doseq [row board]
     (println row)))
 
-(defn in-range?
-  [value [start end]]
-  (and (>= value start)
-       (<= value end)))
-
 (defn is-valid-move?
   [pos board]
   (and (in-range? pos [1 9])
@@ -51,42 +63,45 @@
              mark (get-in board [row col])]
          (= \_ mark))))
 
-(defn match3?
-  [board mark & positions]
-  (apply = mark (map #(get-in board %) positions)))
+(defn match?
+  [board mark & numbers]
+  (let [positions (map number-to-index numbers)
+        row (map #(get-in board %) positions)
+        =r= (equal? mark)]
+    (=r= row)))
 
 (defn has-winner-mark?
   [board mark]
   (or
-   (some true?
-         (map #(apply = mark %) board))
-   (some true?
-         (apply map = mark board))
-   (match3? board mark [0 0] [1 1] [2 2])
-   (match3? board mark [0 2] [1 1] [2 0])))
+    ;;  horizontal check
+   (any-true?
+    (map (equal? mark) board))
+
+    ;;  vertical check
+   (any-true?
+    (apply map #(apply = mark %&) board))
+   
+   ;; diagonal checks
+   (match? board mark 1 5 9)
+   (match? board mark 3 5 7)))
 
 (defn has-winner?
   [board]
   (or (has-winner-mark? board "X")
       (has-winner-mark? board "0")))
 
-
-(defn apply-next-move
-  [pos]
-  (let [[new-board new-turns] (place-move
-                               (:board @state)
-                               (:turns @state)
-                               pos)]
-    (reset! state
-            (assoc @state :board new-board :turns new-turns))))
-
 (defn game-loop
   [pos]
   (if (is-valid-move? pos (:board @state))
-    ((apply-next-move pos)
-     (if (has-winner? (:board @state))
-       (println "has a winner!")
-       (println "...no winner, continue")))
+    (let [[next-board next-turns] (place-move
+                                   (:board @state)
+                                   (:turns @state)
+                                   pos)]
+      (reset! state
+              (assoc @state :board next-board :turns next-turns))
+      (if (has-winner? next-board)
+        (println "has a winner!")
+        (println "...no winner, continue")))
     (println "wrong move w/")))
 
 (comment
@@ -101,4 +116,10 @@
   (show-board
    (place-move (:board @state) (:turns @state) 5))
   (in-range? 4 [1 5])
-  (is-valid-move? 3 (:board @state)))
+  (is-valid-move? 3 (:board @state))
+  (map game-loop [1 2 4 5 7])
+
+  (some true?
+        (apply map #(apply = 1 %&)
+               [[1 0 0] [1 0 0] [1 0 0]]))
+  )
